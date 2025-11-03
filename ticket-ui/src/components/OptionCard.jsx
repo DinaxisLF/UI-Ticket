@@ -8,6 +8,7 @@ const OptionCard = ({
   eventLocation,
   buttonText = "Ver Eventos",
   link,
+  type,
 }) => {
   const navigate = useNavigate();
 
@@ -33,8 +34,15 @@ const OptionCard = ({
         </h3>
 
         {/* Action Button */}
+
         <button
-          onClick={() => navigate(`/${link}/${id}`)}
+          onClick={() => {
+            if (type !== undefined) {
+              navigate(`/${link}/${id}/${eventName}`);
+            } else {
+              navigate(`/${link}/${id}`);
+            }
+          }}
           className="w-full px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md font-medium transition-all hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 cursor-pointer"
         >
           {buttonText}

@@ -5,9 +5,11 @@ import Home from "./pages/Home.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Menu from "./pages/Menu.jsx";
 import Login from "./pages/Login.jsx";
-import Cinema from "./pages/Cinema.jsx";
-import Theater from "./pages/Theather.jsx";
 import Museum from "./pages/Museum.jsx";
+import SubMenu from "./components/SubMenu.jsx";
+
+import CinemaDescription from "./pages/CinemaDescription.jsx";
+import CinemaScreenings from "./pages/CinemaScreenings.jsx";
 
 import TheatherDescription from "./pages/TheatherDescription.jsx";
 import TheaterTickets from "./pages/TheatherTickets.jsx";
@@ -43,21 +45,14 @@ const router = createBrowserRouter([
       },
 
       {
-        path: "theater",
+        path: "submenu",
         element: (
           <ProtectedRoute>
-            <Theater />
+            <SubMenu />
           </ProtectedRoute>
         ),
       },
-      {
-        path: "cinema",
-        element: (
-          <ProtectedRoute>
-            <Cinema />
-          </ProtectedRoute>
-        ),
-      },
+
       {
         path: "museum",
         element: (
@@ -72,6 +67,24 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <TheatherDescription />
+          </ProtectedRoute>
+        ),
+      },
+
+      {
+        path: "cinemaTypes/:cinemaId",
+        element: (
+          <ProtectedRoute>
+            <CinemaDescription />
+          </ProtectedRoute>
+        ),
+      },
+
+      {
+        path: "cinemaEvents/:id/:type",
+        element: (
+          <ProtectedRoute>
+            <CinemaScreenings />
           </ProtectedRoute>
         ),
       },

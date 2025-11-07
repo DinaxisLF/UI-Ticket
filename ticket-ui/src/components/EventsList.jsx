@@ -4,10 +4,11 @@ import MuseumImage from "../assets/museo.jpg";
 import TitleHeader from "./TitleHeader";
 import { useNavigate } from "react-router-dom";
 
-const EventCard = ({ title, image, link, eventType, onCardClick }) => {
+const EventCard = ({ title, image, link, eventType, onCardClick, apiCall }) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
+    console.log("Card clicked with:", { eventType, apiCall, title });
     if (onCardClick) {
       onCardClick(eventType);
     } else {
@@ -15,7 +16,7 @@ const EventCard = ({ title, image, link, eventType, onCardClick }) => {
         state: {
           title: title,
           eventType: eventType,
-          optionsList: getOptionsList(eventType),
+          apiCall: apiCall, // Make sure this is passed
         },
       });
     }
@@ -48,92 +49,6 @@ const EventCard = ({ title, image, link, eventType, onCardClick }) => {
   );
 };
 
-// Data for different event types
-const getOptionsList = (eventType) => {
-  switch (eventType) {
-    case "theater":
-      return [
-        {
-          id: 1,
-          name: "Teatro Colón",
-          eventLocation: "Buenos Aires, Argentina",
-          imageUrl: TheaterImage,
-          link: "theaterEvents",
-        },
-        {
-          id: 2,
-          name: "Teatro de la Scala",
-          eventLocation: "Milan, Italia",
-          imageUrl: TheaterImage,
-          link: "theaterEvents",
-        },
-        {
-          id: 3,
-          name: "Teatro Metropólitano",
-          eventLocation: "Ciudad de México, México",
-          imageUrl: TheaterImage,
-          link: "theaterEvents",
-        },
-      ];
-
-    case "cinema":
-      return [
-        {
-          id: 1,
-          name: "Cinemark",
-          imageUrl: cinemaImage,
-          link: "cinemaTypes",
-        },
-        {
-          id: 2,
-          name: "Cinepolis",
-          imageUrl: cinemaImage,
-          link: "cinemaTypes",
-        },
-        {
-          id: 3,
-          name: "Cinemex",
-          imageUrl: cinemaImage,
-          link: "cinemaTypes",
-        },
-        {
-          id: 4,
-          name: "AMC",
-          imageUrl: cinemaImage,
-          link: "cinemaTypes",
-        },
-      ];
-
-    case "museum":
-      return [
-        {
-          id: 1,
-          name: "Museo Nacional",
-          eventLocation: "Centro Histórico",
-          imageUrl: MuseumImage,
-          link: "museumEvents",
-        },
-        {
-          id: 2,
-          name: "Museo de Arte Moderno",
-          eventLocation: "Chapultepec",
-          imageUrl: MuseumImage,
-          link: "museumEvents",
-        },
-        {
-          id: 3,
-          name: "Museo de Historia Natural",
-          eventLocation: "Parque Central",
-          imageUrl: MuseumImage,
-          link: "museumEvents",
-        },
-      ];
-
-    default:
-      return [];
-  }
-};
-
 const EventsList = () => {
   const events = [
     {
@@ -141,18 +56,21 @@ const EventsList = () => {
       link: "submenu",
       image: TheaterImage,
       eventType: "theater",
+      apiCall: "Teatro",
     },
     {
       title: "Boletos Cine",
       link: "submenu",
       image: cinemaImage,
       eventType: "cinema",
+      apiCall: "Cine",
     },
     {
       title: "Boletos Museo",
       link: "submenu",
       image: MuseumImage,
       eventType: "museum",
+      apiCall: "Museo",
     },
   ];
 

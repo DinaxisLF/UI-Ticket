@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import TheaterImage from "../assets/teatro.jpg";
 import { useNavigate, useLocation } from "react-router-dom";
-import TitleHeader from "../components/TitleHeader";
+import TitleHeader from "../components/TitleHeader.jsx";
+import { TransactionAPI } from "../services/api/transaction.js";
 
 export default function ConfirmPurchase() {
   const navigate = useNavigate();
@@ -238,22 +239,48 @@ export default function ConfirmPurchase() {
     return !Object.values(newErrors).some((error) => error !== "");
   };
 
-  const handleCardSubmit = (e) => {
+  const handleCardSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      return; // Don't proceed if there are validation errors
+      return;
     }
 
     setPaymentProcessing(true);
 
-    // Simulate payment processing
-    setTimeout(() => {
-      setPaymentProcessing(false);
+    try {
+      // Obtener usuario del localStorage
+      const usuario = JSON.parse(localStorage.getItem("user"));
+
+      if (!usuario || !usuario.id) {
+        throw new Error(
+          "Usuario no encontrado. Por favor inicia sesión nuevamente."
+        );
+      }
+
+      // Preparar datos para la transacción - CORREGIDO
+      const transaccionData = {
+        usuario_id: usuario.id,
+        evento_id: eventData.id,
+        categoria_boleto_id: getTicketCategoryId(),
+        cantidad_boletos: getTotalTickets(),
+        precio_unitario: calcularPrecioUnitario(),
+        metodo_pago: selectedPaymentMethod === "credit" ? "tarjeta" : "tarjeta", // Usar "tarjeta" para ambos
+        total_pagado: calculatedTotal,
+        asientos_seleccionados: prepararAsientosSeleccionados(), // Nueva función
+        secciones_info: prepararSeccionesInfo(),
+      };
+
+      console.log("Enviando transacción:", transaccionData);
+
+      // Llamar a la API para procesar la transacción
+      const resultado = await TransactionAPI.createTransaction(transaccionData);
+
+      // Si la transacción fue exitosa
       alert("¡Pago procesado exitosamente! Su compra ha sido confirmada.");
       setShowPaymentModal(false);
 
-      // Navigate to summary with all purchase data
+      // Navigate to summary con los datos de la transacción
       navigate("/summary", {
         state: {
           selectedSeats,
@@ -262,23 +289,149 @@ export default function ConfirmPurchase() {
           eventData,
           paymentMethod:
             selectedPaymentMethod === "credit" ? "Credit Card" : "Debit Card",
+          transaccion_id: resultado.transaction_id, // Cambiado a transaction_id
+          transaccion: resultado.transaction, // Cambiado a transaction
         },
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error procesando pago:", error);
+      alert(`Error al procesar el pago: ${error.message}`);
+    } finally {
+      setPaymentProcessing(false);
+    }
   };
 
-  const handlePayPalPayment = () => {
+  const getTotalTickets = () => {
+    return ticketTypes.reduce((sum, ticket) => sum + ticket.quantity, 0);
+  };
+
+  const getTicketCategoryId = () => {
+    const categoriasMap = {
+      general: 1, // General
+      balconIzquierdo: 2, // Balcon
+      balconDerecho: 2, // Balcon
+      palco: 3, // Palco
+      platea: 4, // Platea
+    };
+
+    // Usar la primera sección seleccionada para determinar la categoría
+    const primeraSeccion = selectedSeats[0]?.split("-")[0];
+
+    if (!primeraSeccion) {
+      console.warn(
+        "No se encontraron asientos seleccionados, usando categoría General por defecto"
+      );
+      return 1;
+    }
+
+    const categoriaId = categoriasMap[primeraSeccion];
+
+    if (!categoriaId) {
+      console.warn(
+        `Categoría no encontrada para sección: ${primeraSeccion}, usando General por defecto`
+      );
+      return 1;
+    }
+
+    console.log(
+      `Usando categoría ID: ${categoriaId} para sección: ${primeraSeccion}`
+    );
+    return categoriaId;
+  };
+  const calcularPrecioUnitario = () => {
+    const totalTickets = getTotalTickets();
+    if (totalTickets === 0) return 0;
+
+    // Calcular el precio promedio por ticket
+    return calculatedTotal / totalTickets;
+  };
+
+  const prepararAsientosSeleccionados = () => {
+    return selectedSeats.map((seatId) => {
+      const [section, row, col] = seatId.split("-");
+
+      // Convertir a números y usar 1-based indexing para el backend
+      const fila = parseInt(row) + 1;
+      const columna = parseInt(col) + 1;
+
+      // Mapear nombres de sección si es necesario
+      const sectionMap = {
+        general: "General",
+        platea: "Platea",
+        palco: "Palco",
+        balconIzquierdo: "Balcon",
+        balconDerecho: "Balcon",
+      };
+
+      return {
+        seccion: sectionMap[section] || section,
+        fila: fila,
+        columna: columna,
+      };
+    });
+  };
+
+  const prepararSeccionesInfo = () => {
+    const seccionesMap = {};
+
+    // Agrupar asientos por sección (usando 1-based indexing para el backend)
+    selectedSeats.forEach((seatId) => {
+      const [section, row, col] = seatId.split("-");
+
+      // Convertir a 1-based indexing para el backend
+      const fila = parseInt(row) + 1;
+      const columna = parseInt(col) + 1;
+
+      if (!seccionesMap[section]) {
+        seccionesMap[section] = [];
+      }
+
+      seccionesMap[section].push({
+        fila: fila,
+        columna: columna,
+      });
+    });
+
+    // Convertir a array para el endpoint
+    return Object.keys(seccionesMap).map((seccion_key) => ({
+      seccion_key: seccion_key,
+      asientos: seccionesMap[seccion_key],
+    }));
+  };
+
+  const handlePayPalPayment = async () => {
     setPaymentProcessing(true);
 
-    // Simulate PayPal payment
-    setTimeout(() => {
-      setPaymentProcessing(false);
+    try {
+      const usuario = JSON.parse(localStorage.getItem("user"));
+
+      if (!usuario || !usuario.id) {
+        throw new Error(
+          "Usuario no encontrado. Por favor inicia sesión nuevamente."
+        );
+      }
+
+      const transaccionData = {
+        usuario_id: usuario.id,
+        evento_id: eventData.id,
+        categoria_boleto_id: getTicketCategoryId(),
+        cantidad_boletos: getTotalTickets(),
+        precio_unitario: calcularPrecioUnitario(),
+        metodo_pago: "paypal",
+        total_pagado: calculatedTotal,
+        asientos_seleccionados: prepararAsientosSeleccionados(), // Nueva función
+        secciones_info: prepararSeccionesInfo(),
+      };
+
+      console.log("Enviando transacción PayPal:", transaccionData);
+
+      const resultado = await TransactionAPI.createTransaction(transaccionData);
+
       alert(
         "¡Pago con PayPal procesado exitosamente! Su compra ha sido confirmada."
       );
       setShowPaymentModal(false);
 
-      // Navigate to summary with all purchase data
       navigate("/summary", {
         state: {
           selectedSeats,
@@ -286,9 +439,16 @@ export default function ConfirmPurchase() {
           total: calculatedTotal,
           eventData,
           paymentMethod: "PayPal",
+          transaccion_id: resultado.transaction_id, // Cambiado a transaction_id
+          transaccion: resultado.transaction, // Cambiado a transaction
         },
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error procesando pago PayPal:", error);
+      alert(`Error al procesar el pago con PayPal: ${error.message}`);
+    } finally {
+      setPaymentProcessing(false);
+    }
   };
 
   const renderPaymentModal = () => {

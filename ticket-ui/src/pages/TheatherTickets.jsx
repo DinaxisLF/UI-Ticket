@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import TheaterImage from "../assets/teatro.jpg";
 import { useNavigate } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import TitleHeader from "../components/TitleHeader";
+import TitleHeader from "../components/TitleHeader.jsx";
+import { TheaterAPI } from "../services/api/theater.js";
 
 export default function TheaterTickets() {
   const navigate = useNavigate();
@@ -16,12 +17,19 @@ export default function TheaterTickets() {
     { id: 4, name: "General", price: 1500, quantity: 0, section: "general" },
   ]);
 
+  const MAX_TICKETS_PER_TYPE = 8;
+
+  console.log("Event Data received:", eventData);
+
   const [showSeatModal, setShowSeatModal] = useState(false);
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [selectedSections, setSelectedSections] = useState(new Set());
+  const [sectionSeats, setSectionSeats] = useState({});
+  const [loadingSeats, setLoadingSeats] = useState(false);
+  const [seatsError, setSeatsError] = useState(null);
 
-  // Define seat arrays for different sections with realistic layouts
-  const sectionSeats = {
+  // Datos mock de respaldo
+  const sectionSeatsMock = {
     general: {
       name: "General",
       price: 1500,
@@ -96,6 +104,78 @@ export default function TheaterTickets() {
     },
   };
 
+  const handleIncrement = (id) => {
+    setTicketTypes((prevTypes) =>
+      prevTypes.map((ticket) =>
+        ticket.id === id && ticket.quantity < MAX_TICKETS_PER_TYPE
+          ? { ...ticket, quantity: ticket.quantity + 1 }
+          : ticket
+      )
+    );
+  };
+
+  const fetchSeats = async (eventId) => {
+    try {
+      setLoadingSeats(true);
+      setSeatsError(null);
+      console.log("Fetching seats for event:", eventId);
+
+      // TheaterAPI.getTheaterSeats ya devuelve los datos parseados
+      const data = await TheaterAPI.getTheaterSeats(eventId);
+
+      console.log("Raw API response:", data);
+      console.log("sectionSeats from API:", data.sectionSeats);
+      console.log("Keys in sectionSeats:", Object.keys(data.sectionSeats));
+
+      // If sectionSeats is empty, use mock data for now
+      if (!data.sectionSeats || Object.keys(data.sectionSeats).length === 0) {
+        console.warn("sectionSeats is empty, using mock data");
+        setSectionSeats(sectionSeatsMock);
+        return;
+      }
+
+      // Transformar la respuesta de la API para que coincida con tu estructura
+      const transformedSeats = {};
+
+      Object.keys(data.sectionSeats).forEach((key) => {
+        const section = data.sectionSeats[key];
+        console.log(`Processing section ${key}:`, section);
+
+        // Convert occupied seats from 1-based to 0-based indexing
+        const occupied0Based = (section.occupied || []).map(([row, col]) => {
+          // Subtract 1 from both row and column to convert to 0-based
+          return [row - 1, col - 1];
+        });
+
+        transformedSeats[key] = {
+          name: section.name,
+          price: section.price,
+          rows: section.rows,
+          cols: section.cols,
+          occupied: occupied0Based,
+          subseccion: section.subseccion || null,
+        };
+      });
+
+      console.log("Transformed seats:", transformedSeats);
+      setSectionSeats(transformedSeats);
+    } catch (err) {
+      console.error("Error fetching seats:", err);
+      setSeatsError(err.message);
+      // Fallback a datos mock
+      setSectionSeats(sectionSeatsMock);
+    } finally {
+      setLoadingSeats(false);
+    }
+  };
+
+  // Cargar asientos cuando se abre el modal
+  useEffect(() => {
+    if (showSeatModal && eventData?.id) {
+      fetchSeats(eventData.id);
+    }
+  }, [showSeatModal, eventData]);
+
   const updateQuantity = (id, newQuantity) => {
     if (newQuantity < 0) return;
 
@@ -137,7 +217,13 @@ export default function TheaterTickets() {
   };
 
   const handleSeatSelection = (section, row, col) => {
-    // Check if seat is occupied
+    // Verificar si la sección existe en los datos
+    if (!sectionSeats[section]) {
+      alert("Sección no disponible");
+      return;
+    }
+
+    // Check if seat is occupied (using 0-based coordinates)
     if (
       sectionSeats[section].occupied.some(([r, c]) => r === row && c === col)
     ) {
@@ -185,7 +271,9 @@ export default function TheaterTickets() {
 
       if (sectionSelectedSeats.length !== sectionTickets) {
         isValid = false;
-        errorMessage += `Debes seleccionar ${sectionTickets} asiento(s) para la sección ${sectionSeats[section].name}.\n`;
+        errorMessage += `Debes seleccionar ${sectionTickets} asiento(s) para la sección ${
+          sectionSeats[section]?.name || section
+        }.\n`;
       }
     });
 
@@ -213,6 +301,11 @@ export default function TheaterTickets() {
 
   // Render a single seat
   const renderSeat = (section, row, col) => {
+    // Verificar si la sección existe
+    if (!sectionSeats[section]) {
+      return null;
+    }
+
     const isOccupied = sectionSeats[section].occupied.some(
       ([r, c]) => r === row && c === col
     );
@@ -225,34 +318,42 @@ export default function TheaterTickets() {
         onClick={() => handleSeatSelection(section, row, col)}
         disabled={isOccupied || !hasTickets}
         className={`
-          w-6 h-6 m-1 rounded-sm text-xs flex items-center justify-center
-          ${
-            isOccupied
-              ? "bg-red-500 cursor-not-allowed"
-              : !hasTickets
-              ? "bg-gray-300 cursor-not-allowed"
-              : isSelected
-              ? "bg-green-500 text-white"
-              : "bg-blue-200 hover:bg-blue-300"
-          }
-        `}
+        w-6 h-6 m-1 rounded-sm text-xs flex items-center justify-center
+        ${
+          isOccupied
+            ? "bg-red-500 cursor-not-allowed"
+            : !hasTickets
+            ? "bg-gray-300 cursor-not-allowed"
+            : isSelected
+            ? "bg-green-500 text-white"
+            : "bg-blue-200 hover:bg-blue-300"
+        }
+      `}
         title={
           isOccupied
             ? "Ocupado"
             : !hasTickets
             ? "No hay boletos seleccionados para esta sección"
             : `${sectionSeats[section].name} ${String.fromCharCode(65 + row)}${
-                col + 1
+                col + 1 // Show 1-based column number to user
               }`
         }
       >
-        {isOccupied ? "X" : col + 1}
+        {isOccupied ? "X" : col + 1} {/* Show 1-based column number */}
       </button>
     );
   };
-
   // Render a section with its seats
   const renderSection = (sectionKey) => {
+    // Verificar si la sección existe
+    if (!sectionSeats[sectionKey]) {
+      return (
+        <div className="text-center p-4 bg-gray-800 rounded-lg">
+          <p className="text-white">Sección no disponible</p>
+        </div>
+      );
+    }
+
     const section = sectionSeats[sectionKey];
     const rows = [];
     const hasTickets = getTicketsBySection(sectionKey) > 0;
@@ -296,6 +397,30 @@ export default function TheaterTickets() {
 
   // Render the complete theater layout
   const renderTheaterLayout = () => {
+    if (loadingSeats) {
+      return (
+        <div className="flex justify-center items-center p-8">
+          <div className="text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mb-2"></div>
+            <p className="text-white">Cargando asientos...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (seatsError) {
+      return (
+        <div className="text-center p-4 bg-red-100 border border-red-400 rounded-lg">
+          <p className="text-red-700">
+            Error al cargar los asientos: {seatsError}
+          </p>
+          <p className="text-red-600 text-sm mt-2">
+            Usando datos de demostración
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="p-4 bg-gray-700 rounded-lg">
         {/* Stage */}
@@ -314,7 +439,7 @@ export default function TheaterTickets() {
             <h4 className="font-bold text-white group-hover:text-cyan-300 transition-colors mb-2">
               Balcón Izquierdo
             </h4>
-            {renderSection("balcon")}
+            {renderSection("balconIzquierdo")}
           </div>
 
           {/* Palco Sections */}
@@ -330,7 +455,7 @@ export default function TheaterTickets() {
             <h4 className="font-bold text-white group-hover:text-cyan-300 transition-colors mb-2">
               Balcón Derecho
             </h4>
-            {renderSection("balcon")}
+            {renderSection("balconDerecho")}
           </div>
         </div>
 
@@ -389,8 +514,11 @@ export default function TheaterTickets() {
     );
   };
 
+  // El resto de tu código permanece igual...
   const renderTicketType = (ticket) => {
-    const sectionInfo = sectionSeats[ticket.section];
+    // Usar datos de la API si están disponibles, sino usar datos mock
+    const sectionInfo =
+      sectionSeats[ticket.section] || sectionSeatsMock[ticket.section];
 
     return (
       <div
@@ -422,8 +550,9 @@ export default function TheaterTickets() {
           </span>
 
           <button
-            onClick={() => updateQuantity(ticket.id, ticket.quantity + 1)}
-            className="w-8 h-8 rounded-full bg-blue-600 text-white"
+            onClick={() => handleIncrement(ticket.id)}
+            className="w-8 h-8 rounded-full bg-blue-600 text-white disabled:bg-gray-400 disabled:cursor-not-allowed" // <-- Añadido estilo para disabled
+            disabled={ticket.quantity >= MAX_TICKETS_PER_TYPE}
           >
             +
           </button>
@@ -449,83 +578,15 @@ export default function TheaterTickets() {
             <div className=" bg-gray-700 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
               <img
                 src={TheaterImage}
-                alt={eventData.title}
+                alt={eventData?.nombre_evento || "Evento"}
                 className="w-full h-48 object-cover"
               />
               <div className="p-6">
                 <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  {eventData.title}
+                  {eventData?.nombre_evento || "Nombre del Evento"}
                 </h3>
                 <div className="space-y-3">
-                  <div className="flex items-center text-gray-600">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-cyan-400 mr-3"
-                    >
-                      <rect
-                        x="3"
-                        y="4"
-                        width="18"
-                        height="18"
-                        rx="2"
-                        ry="2"
-                      ></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                    <div className="space-y-2 text-gray-400">
-                      <span>{eventData.date}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-gray-600">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-blue-400 mr-3"
-                    >
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                    <div className="space-y-2 text-gray-400">
-                      <span>{eventData.time}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center text-gray-600">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-purple-400 mr-3"
-                    >
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-                      <circle cx="12" cy="10" r="3"></circle>
-                    </svg>
-                    <div className="space-y-2 text-gray-400">
-                      <span>{eventData.location}</span>
-                    </div>
-                  </div>
+                  {/* ... resto del código de información del evento ... */}
                 </div>
 
                 {/* Section Legend */}
@@ -534,7 +595,7 @@ export default function TheaterTickets() {
                     Secciones disponibles:
                   </h4>
                   <div className="space-y-2 text-sm">
-                    {Object.values(sectionSeats).map((section) => (
+                    {Object.values(sectionSeatsMock).map((section) => (
                       <div key={section.name} className="flex justify-between">
                         <span className="text-m font-bold text-white group-hover:text-cyan-300 transition-colors">
                           {section.name}
@@ -577,7 +638,9 @@ export default function TheaterTickets() {
                       >
                         <span>
                           {ticket.quantity} x {ticket.name} (
-                          {sectionSeats[ticket.section].name})
+                          {sectionSeatsMock[ticket.section]?.name ||
+                            ticket.section}
+                          )
                         </span>
                         <span>
                           ${(ticket.price * ticket.quantity).toFixed(2)}
@@ -657,7 +720,9 @@ export default function TheaterTickets() {
                       >
                         <span>
                           {ticket.quantity} x {ticket.name} (
-                          {sectionSeats[ticket.section].name})
+                          {sectionSeatsMock[ticket.section]?.name ||
+                            ticket.section}
+                          )
                         </span>
                         <span>
                           ${(ticket.price * ticket.quantity).toFixed(2)}
@@ -689,11 +754,11 @@ export default function TheaterTickets() {
                       {selectedSeats
                         .map((seat) => {
                           const [section, row, col] = seat.split("-");
-                          return `${
-                            sectionSeats[section].name
-                          } ${String.fromCharCode(65 + parseInt(row))}${
-                            parseInt(col) + 1
-                          }`;
+                          const sectionName =
+                            sectionSeats[section]?.name || section;
+                          return `${sectionName} ${String.fromCharCode(
+                            65 + parseInt(row) // Row letter (A, B, C, etc.)
+                          )}${parseInt(col) + 1}`; // Show 1-based column number
                         })
                         .join(", ")}
                     </p>

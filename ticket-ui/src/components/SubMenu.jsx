@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import OptionCard from "./OptionCard.jsx";
 import { useNavigate, useLocation } from "react-router-dom";
-import { validateDate } from "../utils/dateValidation";
+import { validateDate } from "../utils/dateValidation.js";
 import TitleHeader from "./TitleHeader.jsx";
 import { PlacesAPI } from "../services/api/places.js";
 import TheaterImage from "../assets/teatro.jpg";

@@ -195,7 +195,7 @@ export default function PurchaseSummary() {
                   Imprimir Comprobante
                 </button>
                 <button
-                  onClick={() => (window.location.href = "/")}
+                  onClick={() => (window.location.href = "/dashboard")}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
                 >
                   Volver al Inicio

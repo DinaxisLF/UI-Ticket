@@ -35,6 +35,7 @@ export const PlacesAPI = {
       const response = await fetch(`${API_BASE_URL}/type/${type}`, {
         method: "GET",
         headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
           "Content-Type": "application/json",
         },
       });

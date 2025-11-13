@@ -92,8 +92,10 @@ const Login = () => {
 
       if (!formData.email) {
         newErrors.email = "Email es requerido";
-      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = "Email no es válido";
+      } else if (
+        !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)
+      ) {
+        newErrors.email = "Email no valido";
       }
 
       if (!formData.confirmPassword) {

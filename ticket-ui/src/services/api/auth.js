@@ -1,4 +1,5 @@
-const API_BASE_URL = "http://localhost:3000/api";
+const Auth_API_URL = "http://localhost:3000/api/auth";
+const User_API_URL = "http://localhost:3000/api/users";
 
 class APIError extends Error {
   constructor(message, status = 500) {
@@ -31,9 +32,9 @@ const handleResponse = async (response) => {
 export const authAPI = {
   async login(username, password) {
     try {
-      console.log("Sending login request to /api/users/login");
+      console.log("Sending login request to /api/auth/login");
 
-      const response = await fetch(`${API_BASE_URL}/users/login`, {
+      const response = await fetch(`${Auth_API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -57,7 +58,7 @@ export const authAPI = {
     try {
       console.log("Sending register request to /api/users");
 
-      const response = await fetch(`${API_BASE_URL}/users`, {
+      const response = await fetch(`${User_API_URL}/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,7 +85,7 @@ export const authAPI = {
       console.log("Checking user exists:", username);
 
       const response = await fetch(
-        `${API_BASE_URL}/users/exists/${encodeURIComponent(username)}`
+        `${User_API_URL}/exists/${encodeURIComponent(username)}`
       );
       const result = await handleResponse(response);
       console.log("Check user exists response:", result);

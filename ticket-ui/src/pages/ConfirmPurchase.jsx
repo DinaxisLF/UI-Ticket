@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import TheaterImage from "../assets/teatro.jpg";
+import MuseumImage from "../assets/museo.jpg"; // Asegúrate de tener esta imagen
 import { useNavigate, useLocation } from "react-router-dom";
 import TitleHeader from "../components/TitleHeader.jsx";
 import { TransactionAPI } from "../services/api/transaction.js";
@@ -11,19 +12,29 @@ export default function ConfirmPurchase() {
   // Get data from navigation state
   const { selectedSeats, ticketTypes, total, eventData } = location.state || {};
 
+  const isMuseumEvent = eventData?.tipo_evento === "museum";
+
   // Format seat display names
+  // Format seat display names - FIXED VERSION
   const formatSeatDisplay = (seatId) => {
     if (!seatId) return "";
     const [section, row, col] = seatId.split("-");
+    console.log("Eventdata in formatSeatDisplay:", eventData);
+    // Complete section mapping including balcony sections
     const sectionNames = {
       general: "General",
       platea: "Platea",
       palco: "Palco",
-      balcon: "Balcón",
+      balconIzquierdo: "Balcón Izquierdo",
+      balconDerecho: "Balcón Derecho",
+      balcon: "Balcón", // Fallback
     };
-    return `${sectionNames[section] || section} ${String.fromCharCode(
-      65 + parseInt(row)
-    )}${parseInt(col) + 1}`;
+
+    const sectionName = sectionNames[section] || section;
+    const rowLetter = String.fromCharCode(65 + parseInt(row));
+    const seatNumber = parseInt(col) + 1;
+
+    return `${sectionName} ${rowLetter}${seatNumber}`;
   };
 
   // Calculate total from ticketTypes if not provided
@@ -258,18 +269,37 @@ export default function ConfirmPurchase() {
         );
       }
 
-      // Preparar datos para la transacción - CORREGIDO
-      const transaccionData = {
-        usuario_id: usuario.id,
-        evento_id: eventData.id,
-        categoria_boleto_id: getTicketCategoryId(),
-        cantidad_boletos: getTotalTickets(),
-        precio_unitario: calcularPrecioUnitario(),
-        metodo_pago: selectedPaymentMethod === "credit" ? "tarjeta" : "tarjeta", // Usar "tarjeta" para ambos
-        total_pagado: calculatedTotal,
-        asientos_seleccionados: prepararAsientosSeleccionados(), // Nueva función
-        secciones_info: prepararSeccionesInfo(),
-      };
+      // PREPARAR DATA DE TRANSACCIÓN BASADO EN TIPO DE EVENTO
+      let transaccionData;
+
+      if (isMuseumEvent) {
+        // 🎭 DATA PARA MUSEO
+        transaccionData = {
+          usuario_id: usuario.id,
+          evento_id: eventData.id,
+          metodo_pago:
+            selectedPaymentMethod === "credit" ? "tarjeta" : "tarjeta",
+          total_pagado: calculatedTotal,
+          // Campos específicos para museo
+          asientos_seleccionados: [], // Vacío para museo
+          secciones_info: [], // Vacío para museo
+          ticket_details: prepararTicketDetails(), // Detalles de boletos
+          tipo_evento: "Museo", // Especificar que es museo
+        };
+      } else {
+        // 🎭 DATA PARA TEATRO/CINE (existente)
+        transaccionData = {
+          usuario_id: usuario.id,
+          evento_id: eventData.id,
+          metodo_pago:
+            selectedPaymentMethod === "credit" ? "tarjeta" : "tarjeta",
+          total_pagado: calculatedTotal,
+          asientos_seleccionados: prepararAsientosSeleccionados(),
+          secciones_info: prepararSeccionesInfo(),
+          ticket_details: prepararTicketDetails(),
+          tipo_evento: "Teatro", // O "Cine" según corresponda
+        };
+      }
 
       console.log("Enviando transacción:", transaccionData);
 
@@ -283,14 +313,15 @@ export default function ConfirmPurchase() {
       // Navigate to summary con los datos de la transacción
       navigate("/summary", {
         state: {
-          selectedSeats,
+          selectedSeats: isMuseumEvent ? [] : selectedSeats, // Vacío para museo
           ticketTypes: ticketTypes.filter((t) => t.quantity > 0),
           total: calculatedTotal,
           eventData,
           paymentMethod:
             selectedPaymentMethod === "credit" ? "Credit Card" : "Debit Card",
-          transaccion_id: resultado.transaction_id, // Cambiado a transaction_id
-          transaccion: resultado.transaction, // Cambiado a transaction
+          transaccion_id: resultado.transaction_id,
+          transaccion: resultado.transaction,
+          isMuseum: isMuseumEvent, // Pasar flag de museo
         },
       });
     } catch (error) {
@@ -347,6 +378,11 @@ export default function ConfirmPurchase() {
   };
 
   const prepararAsientosSeleccionados = () => {
+    // Validar que selectedSeats exista y no esté vacío
+    if (!selectedSeats || selectedSeats.length === 0) {
+      return [];
+    }
+
     return selectedSeats.map((seatId) => {
       const [section, row, col] = seatId.split("-");
 
@@ -354,17 +390,8 @@ export default function ConfirmPurchase() {
       const fila = parseInt(row) + 1;
       const columna = parseInt(col) + 1;
 
-      // Mapear nombres de sección si es necesario
-      const sectionMap = {
-        general: "General",
-        platea: "Platea",
-        palco: "Palco",
-        balconIzquierdo: "Balcon",
-        balconDerecho: "Balcon",
-      };
-
       return {
-        seccion: sectionMap[section] || section,
+        seccion: section,
         fila: fila,
         columna: columna,
       };
@@ -374,29 +401,64 @@ export default function ConfirmPurchase() {
   const prepararSeccionesInfo = () => {
     const seccionesMap = {};
 
-    // Agrupar asientos por sección (usando 1-based indexing para el backend)
     selectedSeats.forEach((seatId) => {
       const [section, row, col] = seatId.split("-");
 
-      // Convertir a 1-based indexing para el backend
+      // Normalizar la sección a minúsculas
+      const normalizedSection = section.toLowerCase();
+      console.log(
+        `🔍 Sección original: ${section} -> normalizada: ${normalizedSection}`
+      );
+
       const fila = parseInt(row) + 1;
       const columna = parseInt(col) + 1;
 
-      if (!seccionesMap[section]) {
-        seccionesMap[section] = [];
+      if (!seccionesMap[normalizedSection]) {
+        seccionesMap[normalizedSection] = [];
       }
 
-      seccionesMap[section].push({
+      seccionesMap[normalizedSection].push({
         fila: fila,
         columna: columna,
       });
     });
 
-    // Convertir a array para el endpoint
     return Object.keys(seccionesMap).map((seccion_key) => ({
-      seccion_key: seccion_key,
+      seccion_key: seccion_key, // Enviar en minúsculas
       asientos: seccionesMap[seccion_key],
     }));
+  };
+
+  const prepararTicketDetails = () => {
+    return ticketTypes
+      .filter((ticket) => ticket.quantity > 0)
+      .map((ticket) => ({
+        categoria_boleto_id: getCategoryIdForMuseum(ticket), // Función específica para museo
+        cantidad: ticket.quantity,
+        precio_unitario: ticket.price,
+        subtotal: ticket.price * ticket.quantity,
+      }));
+  };
+
+  const getCategoryIdForMuseum = (ticket) => {
+    if (isMuseumEvent) {
+      // Para museo, siempre usar categoría "General" (ID 1)
+      return 1;
+    } else {
+      // Para teatro/cine, usar la lógica existente
+      return getCategoryIdBySection(ticket.section);
+    }
+  };
+
+  const getCategoryIdBySection = (section) => {
+    const categoriasMap = {
+      general: 1,
+      balconIzquierdo: 2,
+      balconDerecho: 2,
+      palco: 3,
+      platea: 4,
+    };
+    return categoriasMap[section] || 1;
   };
 
   const handlePayPalPayment = async () => {
@@ -411,17 +473,35 @@ export default function ConfirmPurchase() {
         );
       }
 
-      const transaccionData = {
-        usuario_id: usuario.id,
-        evento_id: eventData.id,
-        categoria_boleto_id: getTicketCategoryId(),
-        cantidad_boletos: getTotalTickets(),
-        precio_unitario: calcularPrecioUnitario(),
-        metodo_pago: "paypal",
-        total_pagado: calculatedTotal,
-        asientos_seleccionados: prepararAsientosSeleccionados(), // Nueva función
-        secciones_info: prepararSeccionesInfo(),
-      };
+      // PREPARAR DATA DE TRANSACCIÓN BASADO EN TIPO DE EVENTO - CORREGIDO
+      let transaccionData;
+
+      if (isMuseumEvent) {
+        // 🎭 DATA PARA MUSEO
+        transaccionData = {
+          usuario_id: usuario.id,
+          evento_id: eventData.id,
+          metodo_pago: "paypal", // Especificar PayPal como método de pago
+          total_pagado: calculatedTotal,
+          // Campos específicos para museo
+          asientos_seleccionados: [], // Vacío para museo
+          secciones_info: [], // Vacío para museo
+          ticket_details: prepararTicketDetails(), // Detalles de boletos
+          tipo_evento: "Museo", // Especificar que es museo
+        };
+      } else {
+        // 🎭 DATA PARA TEATRO/CINE
+        transaccionData = {
+          usuario_id: usuario.id,
+          evento_id: eventData.id,
+          metodo_pago: "paypal", // Especificar PayPal como método de pago
+          total_pagado: calculatedTotal,
+          asientos_seleccionados: prepararAsientosSeleccionados(),
+          secciones_info: prepararSeccionesInfo(),
+          ticket_details: prepararTicketDetails(),
+          tipo_evento: "Teatro", // O "Cine" según corresponda
+        };
+      }
 
       console.log("Enviando transacción PayPal:", transaccionData);
 
@@ -434,13 +514,14 @@ export default function ConfirmPurchase() {
 
       navigate("/summary", {
         state: {
-          selectedSeats,
+          selectedSeats: isMuseumEvent ? [] : selectedSeats, // Vacío para museo
           ticketTypes: ticketTypes.filter((t) => t.quantity > 0),
           total: calculatedTotal,
           eventData,
           paymentMethod: "PayPal",
-          transaccion_id: resultado.transaction_id, // Cambiado a transaction_id
-          transaccion: resultado.transaction, // Cambiado a transaction
+          transaccion_id: resultado.transaction_id,
+          transaccion: resultado.transaction,
+          isMuseum: isMuseumEvent, // Pasar flag de museo
         },
       });
     } catch (error) {
@@ -450,7 +531,6 @@ export default function ConfirmPurchase() {
       setPaymentProcessing(false);
     }
   };
-
   const renderPaymentModal = () => {
     switch (selectedPaymentMethod) {
       case "credit":
@@ -627,6 +707,10 @@ export default function ConfirmPurchase() {
     }
   };
 
+  const getEventImage = () => {
+    return isMuseumEvent ? MuseumImage : TheaterImage;
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
@@ -643,7 +727,7 @@ export default function ConfirmPurchase() {
               />
               <div className="p-6">
                 <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors">
-                  {eventData.title}
+                  {eventData.title || eventData.lugar}
                 </h3>
                 <div className="space-y-3">
                   <div className="flex items-center text-gray-600">
@@ -672,7 +756,42 @@ export default function ConfirmPurchase() {
                       <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
                     <div className="space-y-2 text-gray-400">
-                      <span>{eventData.date}</span>
+                      <span>
+                        {(() => {
+                          const raw =
+                            eventData?.date ??
+                            eventData?.fecha ??
+                            eventData?.fecha_evento ??
+                            eventData?.eventDate ??
+                            eventData?.start_date ??
+                            eventData?.startDate ??
+                            null;
+
+                          if (!raw) {
+                            const d = new Date();
+                            const dd = String(d.getDate()).padStart(2, "0");
+                            const mm = String(d.getMonth() + 1).padStart(
+                              2,
+                              "0"
+                            );
+                            const yyyy = d.getFullYear();
+                            return `${dd}-${mm}-${yyyy}`;
+                          }
+
+                          const parsed = new Date(raw);
+                          if (isNaN(parsed.getTime())) {
+                            return String(raw);
+                          }
+
+                          const dd = String(parsed.getDate()).padStart(2, "0");
+                          const mm = String(parsed.getMonth() + 1).padStart(
+                            2,
+                            "0"
+                          );
+                          const yyyy = parsed.getFullYear();
+                          return `${dd}-${mm}-${yyyy}`;
+                        })()}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center text-gray-600">
@@ -692,7 +811,7 @@ export default function ConfirmPurchase() {
                       <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
                     <div className="space-y-2 text-gray-400">
-                      <span>{eventData.time}</span>
+                      <span>{eventData.time || "09:00 AM - 10:00 PM"}</span>
                     </div>
                   </div>
                   <div className="flex items-center text-gray-600">
@@ -712,7 +831,7 @@ export default function ConfirmPurchase() {
                       <circle cx="12" cy="10" r="3"></circle>
                     </svg>
                     <div className="space-y-2 text-gray-400">
-                      <span>{eventData.location}</span>
+                      <span>{eventData.location || eventData.ubicacion}</span>
                     </div>
                   </div>
                 </div>

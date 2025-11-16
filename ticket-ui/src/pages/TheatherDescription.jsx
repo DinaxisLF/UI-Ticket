@@ -1,5 +1,4 @@
 import { useParams } from "react-router-dom";
-import TheaterImage from "../assets/teatro.jpg";
 import EventCard from "../components/EventCard";
 import { TheaterAPI } from "../services/api/theater.js";
 import { useState, useEffect } from "react";

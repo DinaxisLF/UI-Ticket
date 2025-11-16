@@ -1,7 +1,11 @@
 import React from "react";
 import WhiteLogo from "../assets/logo.png";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
 const Header = () => {
+  const navigate = useNavigate();
+
   return (
     <header className="relative z-50 px-6 py-4 border border-cyan-500/30 rounded-lg bg-blue-900 shadow-lg backdrop-blur-md shadow-lg">
       <div className="container mx-auto flex items-center justify-between">
@@ -23,23 +27,54 @@ const Header = () => {
             Inicio
           </Link>
           <Link
-            to="/theater"
+            to="/profile"
             className="text-gray-100 hover:text-cyan-300 transition-colors"
+          >
+            Perfil
+          </Link>
+
+          <span
+            onClick={() =>
+              navigate(`/submenu`, {
+                state: {
+                  title: "Boletos Teatro",
+                  eventType: "theater",
+                  apiCall: "Teatro",
+                },
+              })
+            }
+            className="text-gray-100 hover:text-cyan-300 transition-colors cursor-pointer"
           >
             Teatro
-          </Link>
-          <Link
-            to="/cinema"
-            className="text-gray-100 hover:text-cyan-300 transition-colors"
+          </span>
+          <span
+            onClick={() =>
+              navigate(`/submenu`, {
+                state: {
+                  title: "Boletos Cine",
+                  eventType: "cinema",
+                  apiCall: "Cine",
+                },
+              })
+            }
+            className="text-gray-100 hover:text-cyan-300 transition-colors cursor-pointer"
           >
             Cine
-          </Link>
-          <Link
-            to="/museum"
-            className="text-gray-100 hover:text-cyan-300 transition-colors"
+          </span>
+          <span
+            onClick={() =>
+              navigate(`/submenu`, {
+                state: {
+                  title: "Boletos Museo",
+                  eventType: "museum",
+                  apiCall: "Museo",
+                },
+              })
+            }
+            className="text-gray-100 hover:text-cyan-300 transition-colors cursor-pointer"
           >
             Museo
-          </Link>
+          </span>
         </nav>
       </div>
     </header>

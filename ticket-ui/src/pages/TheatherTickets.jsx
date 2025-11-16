@@ -13,8 +13,21 @@ export default function TheaterTickets() {
   const [ticketTypes, setTicketTypes] = useState([
     { id: 1, name: "Platea", price: 3000, quantity: 0, section: "platea" },
     { id: 2, name: "Palco", price: 2800, quantity: 0, section: "palco" },
-    { id: 3, name: "Balcon", price: 2500, quantity: 0, section: "balcon" },
-    { id: 4, name: "General", price: 1500, quantity: 0, section: "general" },
+    {
+      id: 3,
+      name: "Balcón Izquierdo",
+      price: 2500,
+      quantity: 0,
+      section: "balconIzquierdo",
+    },
+    {
+      id: 4,
+      name: "Balcón Derecho",
+      price: 2500,
+      quantity: 0,
+      section: "balconDerecho",
+    },
+    { id: 5, name: "General", price: 1500, quantity: 0, section: "general" },
   ]);
 
   const MAX_TICKETS_PER_TYPE = 8;

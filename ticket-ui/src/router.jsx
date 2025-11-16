@@ -8,15 +8,20 @@ import Login from "./pages/Login.jsx";
 import Museum from "./pages/Museum.jsx";
 import SubMenu from "./components/SubMenu.jsx";
 
+import Profile from "./pages/Profile.jsx";
+
 import CinemaDescription from "./pages/CinemaDescription.jsx";
 import CinemaScreenings from "./pages/CinemaScreenings.jsx";
+import CinemaTickets from "./pages/CinemaTickets.jsx";
 
 import TheatherDescription from "./pages/TheatherDescription.jsx";
 import TheaterTickets from "./pages/TheatherTickets.jsx";
 
+import MuseumTickets from "./pages/MuseumTickets.jsx";
+
 import PurchaseSummary from "./pages/PurchaseSummary.jsx";
 import ConfirmPurchase from "./pages/ConfirmPurchase.jsx";
-import ProtectedRoute from "./components/ProtectedRoute.jsx"; // Import the protector
+import ProtectedRoute from "./components/ProtectedRoute.jsx";
 
 const router = createBrowserRouter([
   {
@@ -31,6 +36,15 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        ),
+      },
+
+      {
+        path: "profile",
+        element: (
+          <ProtectedRoute>
+            <Profile />
           </ProtectedRoute>
         ),
       },
@@ -58,6 +72,15 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Museum />
+          </ProtectedRoute>
+        ),
+      },
+
+      {
+        path: "museumEvents/:museumId",
+        element: (
+          <ProtectedRoute>
+            <MuseumTickets />
           </ProtectedRoute>
         ),
       },
@@ -97,6 +120,16 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+
+      {
+        path: "buyCinema",
+        element: (
+          <ProtectedRoute>
+            <CinemaTickets />
+          </ProtectedRoute>
+        ),
+      },
+
       {
         path: "/purchaseSummary",
         element: (

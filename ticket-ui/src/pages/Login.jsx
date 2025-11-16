@@ -7,6 +7,8 @@ import {
   validateName,
 } from "../utils/validation";
 
+import { useErrorModal } from "../components/ErrorModal";
+
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
@@ -57,6 +59,8 @@ const Login = () => {
       setMessage({ text: "", type: "" });
     }
   };
+
+  const { showErrorModal, ModalComponent } = useErrorModal();
 
   const validateForm = () => {
     const newErrors = {};
@@ -120,6 +124,11 @@ const Login = () => {
         setMessage({ text: result.message, type: "success" });
         navigate("/dashboard");
       } else {
+        // Use the modal hook function
+        showErrorModal(
+          "Error de Autenticación",
+          "Por favor verifica tus credenciales e intenta nuevamente."
+        );
         setMessage({ text: result.message, type: "error" });
       }
     }
@@ -419,6 +428,8 @@ const Login = () => {
             )}
           </button>
         </form>
+
+        <ModalComponent />
 
         <div className="my-6">
           <div className="relative">

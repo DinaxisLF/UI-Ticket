@@ -6,8 +6,21 @@ import CinemaImage from "../assets/cine.jpg";
 const EventCard = ({ event }) => {
   const navigate = useNavigate();
 
+  const ticketsPage = (eventType) => {
+    switch (eventType) {
+      case "theater":
+        return "/buyTheater";
+      case "museum":
+        return "/buyMuseum";
+      case "cinema":
+        return "/buyCinema";
+      default:
+        return "/buyTheater";
+    }
+  };
+
   const handleGoToTickets = () => {
-    navigate(`/buyTheater`, {
+    navigate(ticketsPage(event.tipo_evento), {
       state: {
         eventData: event,
       },
@@ -160,7 +173,7 @@ const EventCard = ({ event }) => {
           onClick={handleGoToTickets}
           className="w-full px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md font-medium transition-all hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 cursor-pointer"
         >
-          Ver Resumen
+          Comprar Entradas
         </button>
       </div>
     </div>

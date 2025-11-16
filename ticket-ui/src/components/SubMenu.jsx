@@ -15,7 +15,7 @@ export default function SubMenu() {
   const [apiData, setApiData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const dateValidation = validateDate(currentDate);
+  //const dateValidation = validateDate(currentDate);
 
   // Get data passed from EventsList component
   const { optionsList, title, eventType, apiCall } = location.state || {};
@@ -77,7 +77,19 @@ export default function SubMenu() {
     }
   };
 
-  const getSpecialDateMessage = () => {
+  const getURL = (eventType) => {
+    if (eventType === "cinema") {
+      return "cinemaTypes";
+    } else if (eventType === "museum") {
+      return "museumEvents";
+    } else {
+      return `${eventType}Events`;
+    }
+  };
+
+  console.log(getURL(eventType));
+
+  /*const getSpecialDateMessage = () => {
     if (dateValidation.isSpecialDate) {
       return {
         title: "Día Festivo",
@@ -95,13 +107,16 @@ export default function SubMenu() {
     }
     return null;
   };
-
-  const specialMessage = getSpecialDateMessage();
+*/
+  //const specialMessage = getSpecialDateMessage();
 
   // Determine which data to use: API data or passed optionsList
   const displayData = apiCall ? apiData : optionsList;
 
   // If it's a special date or weekend, show only the message
+
+  /*
+
   if (specialMessage) {
     return (
       <div className="min-h-screen bg-gray-900">
@@ -152,6 +167,8 @@ export default function SubMenu() {
       </div>
     );
   }
+
+  */
 
   // Show loading state
   if (loading) {
@@ -231,7 +248,7 @@ export default function SubMenu() {
                 imageUrl={getImage(eventType)}
                 eventName={event.nombre || event.name}
                 eventLocation={event.ubicacion || event.eventLocation}
-                link={event.link || `${eventType}Events`}
+                link={event.link || getURL(eventType)}
                 eventType={eventType}
               />
             ))}

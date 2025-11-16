@@ -12,6 +12,8 @@ const OptionCard = ({
 }) => {
   const navigate = useNavigate();
 
+  console.log("option link:", link);
+  console.log("option type:", eventName);
   return (
     <div className="group relative bg-gray-900 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer">
       <div className="relative h-48 overflow-hidden">
@@ -37,9 +39,16 @@ const OptionCard = ({
 
         <button
           onClick={() => {
-            if (type !== undefined) {
+            if (link === "cinemaEvents") {
               navigate(`/${link}/${id}/${eventName}`);
-            } else {
+            }
+            if (link === "museumEvents") {
+              navigate(`/${link}/${id}`, {
+                state: { museumId: id },
+              });
+            } else if (link === "theaterEvents") {
+              navigate(`/${link}/${id}`);
+            } else if (link === "cinemaTypes") {
               navigate(`/${link}/${id}`);
             }
           }}

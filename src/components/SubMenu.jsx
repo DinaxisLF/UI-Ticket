@@ -1,19 +1,60 @@
 import { useState, useEffect } from "react";
 import OptionCard from "./OptionCard.jsx";
 import { useNavigate, useLocation } from "react-router-dom";
-import { validateDate } from "../utils/dateValidation";
+import { validateDate } from "../utils/dateValidation.js";
 import TitleHeader from "./TitleHeader.jsx";
+import { PlacesAPI } from "../services/api/places.js";
+import TheaterImage from "../assets/teatro.jpg";
+import MuseumImage from "../assets/museo.jpg";
+import CinemaImage from "../assets/cine.jpg";
 
 export default function SubMenu() {
   const navigate = useNavigate();
   const location = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
-  const dateValidation = validateDate(currentDate);
+  const [apiData, setApiData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  //const dateValidation = validateDate(currentDate);
 
   // Get data passed from EventsList component
-  const { optionsList, title, eventType } = location.state || {};
+  const { optionsList, title, eventType, apiCall } = location.state || {};
 
-  console.log(optionsList);
+  useEffect(() => {
+    console.log("SubMenu mounted with:", {
+      apiCall,
+      locationState: location.state,
+    });
+  }, []);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!apiCall) {
+        console.log("No apiCall provided, skipping API call");
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+        console.log("Starting API call for:", apiCall);
+
+        // ✅ FIX: Directly use the data returned by getPlaces
+        const data = await PlacesAPI.getPlaces(apiCall);
+        console.log("API data received:", data);
+
+        setApiData(data);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [apiCall]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -23,7 +64,32 @@ export default function SubMenu() {
     return () => clearInterval(interval);
   }, []);
 
-  const getSpecialDateMessage = () => {
+  const getImage = (eventType) => {
+    switch (eventType) {
+      case "theater":
+        return TheaterImage;
+      case "museum":
+        return MuseumImage;
+      case "cinema":
+        return CinemaImage;
+      default:
+        return "default.jpg";
+    }
+  };
+
+  const getURL = (eventType) => {
+    if (eventType === "cinema") {
+      return "cinemaTypes";
+    } else if (eventType === "museum") {
+      return "museumEvents";
+    } else {
+      return `${eventType}Events`;
+    }
+  };
+
+  console.log(getURL(eventType));
+
+  /*const getSpecialDateMessage = () => {
     if (dateValidation.isSpecialDate) {
       return {
         title: "Día Festivo",
@@ -41,10 +107,16 @@ export default function SubMenu() {
     }
     return null;
   };
+*/
+  //const specialMessage = getSpecialDateMessage();
 
-  const specialMessage = getSpecialDateMessage();
+  // Determine which data to use: API data or passed optionsList
+  const displayData = apiCall ? apiData : optionsList;
 
   // If it's a special date or weekend, show only the message
+
+  /*
+
   if (specialMessage) {
     return (
       <div className="min-h-screen bg-gray-900">
@@ -96,13 +168,60 @@ export default function SubMenu() {
     );
   }
 
+  */
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <div className="container mx-auto px-4 py-6">
+          <TitleHeader title={title || "Eventos"} />
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-white text-lg">Cargando eventos...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-900">
+        <div className="container mx-auto px-4 py-6">
+          <TitleHeader title={title || "Eventos"} />
+          <div className="text-center py-12">
+            <div className="text-red-500 text-4xl mb-4">⚠️</div>
+            <p className="text-white text-lg mb-2">
+              Error al cargar los eventos
+            </p>
+            <p className="text-gray-400 text-sm mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg cursor-pointer mr-2"
+            >
+              Reintentar
+            </button>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-6 rounded-lg cursor-pointer"
+            >
+              Regresar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Regular days - show events as normal
   return (
     <div className="min-h-screen bg-gray-900">
       <div className="container mx-auto px-4 py-6">
         <TitleHeader title={title || "Eventos"} />
 
-        {!optionsList || optionsList.length === 0 ? (
+        {!displayData || displayData.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-400 text-lg mb-4">
               No hay eventos disponibles
@@ -117,19 +236,19 @@ export default function SubMenu() {
         ) : (
           <div
             className={`grid gap-6 max-w-7xl mx-auto ${
-              optionsList.length === 4
+              displayData.length === 4
                 ? "grid-cols-2"
                 : "grid-cols-1 md:grid-cols-2 lg:grid-cols-3"
             }`}
           >
-            {optionsList.map((event) => (
+            {displayData.map((event, index) => (
               <OptionCard
-                key={event.id}
-                id={event.id}
-                imageUrl={event.imageUrl}
-                eventName={event.name}
-                eventLocation={event.eventLocation}
-                link={event.link || `${eventType}Events`}
+                key={event.id || index}
+                id={event.id || index}
+                imageUrl={getImage(eventType)}
+                eventName={event.nombre || event.name}
+                eventLocation={event.ubicacion || event.eventLocation}
+                link={event.link || getURL(eventType)}
                 eventType={eventType}
               />
             ))}

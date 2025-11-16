@@ -1,10 +1,26 @@
 import { useNavigate } from "react-router-dom";
+import TheaterImage from "../assets/teatro.jpg";
+import MuseumImage from "../assets/museo.jpg";
+import CinemaImage from "../assets/cine.jpg";
 
 const EventCard = ({ event }) => {
   const navigate = useNavigate();
 
+  const ticketsPage = (eventType) => {
+    switch (eventType) {
+      case "theater":
+        return "/buyTheater";
+      case "museum":
+        return "/buyMuseum";
+      case "cinema":
+        return "/buyCinema";
+      default:
+        return "/buyTheater";
+    }
+  };
+
   const handleGoToTickets = () => {
-    navigate(`/buyTheater`, {
+    navigate(ticketsPage(event.tipo_evento), {
       state: {
         eventData: event,
       },
@@ -81,24 +97,50 @@ const EventCard = ({ event }) => {
     }
   };
 
+  const getPrice = (category) => {
+    switch (category) {
+      case "cinema":
+        return "12.99";
+      case "theater":
+        return "1500";
+      case "museum":
+        return "15.00";
+      default:
+        return "10.00";
+    }
+  };
+
+  const getImage = (eventType) => {
+    switch (eventType) {
+      case "theater":
+        return TheaterImage;
+      case "museum":
+        return MuseumImage;
+      case "cinema":
+        return CinemaImage;
+      default:
+        return TheaterImage;
+    }
+  };
+
   return (
-    <div className="group relative bg-gray-900 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+    <div className="group relative bg-gray-900 border border-gray-700 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 cursor-pointer">
       {/* Price Badge */}
       <div className="absolute top-4 right-4 z-10">
         <div
           className={`px-3 py-1 rounded-full bg-gradient-to-r ${getCategoryColor(
-            event.category
+            event.tipo_evento
           )} text-white font-bold text-sm shadow-lg`}
         >
-          ${event.price}
+          ${getPrice(event.tipo_evento)}
         </div>
       </div>
 
       {/* Image */}
       <div className="relative h-48 overflow-hidden">
         <img
-          src={event.image}
-          alt={event.title}
+          src={getImage(event.tipo_evento)}
+          alt={event.nombre_evento}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-gray-900/80 to-transparent"></div>
@@ -107,7 +149,7 @@ const EventCard = ({ event }) => {
       {/* Content */}
       <div className="p-6 space-y-4">
         <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors">
-          {event.title}
+          {event.nombre_evento}
         </h3>
 
         <div className="space-y-2 text-gray-400">
@@ -118,7 +160,7 @@ const EventCard = ({ event }) => {
 
           <div className="flex items-center space-x-2">
             <CalendarIcon />
-            <span className="text-sm">{event.date}</span>
+            <span className="text-sm capitalize">{event.date}</span>
           </div>
 
           <div className="flex items-center space-x-2">
@@ -129,9 +171,9 @@ const EventCard = ({ event }) => {
 
         <button
           onClick={handleGoToTickets}
-          className="w-full px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md font-medium transition-all hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+          className="w-full px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-md font-medium transition-all hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-gray-900 cursor-pointer"
         >
-          View Summary
+          Comprar Entradas
         </button>
       </div>
     </div>

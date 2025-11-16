@@ -10,7 +10,7 @@ export default function CinemaDescription() {
   return (
     <div className="min-h-screen bg-gray-900">
       <TitleHeader title="Cine" />
-      <CinemaOptions />
+      <CinemaOptions cinemaId={cinemaId} />
     </div>
   );
 }

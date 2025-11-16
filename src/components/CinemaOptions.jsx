@@ -2,66 +2,68 @@ import React from "react";
 import OptionCard from "./OptionCard";
 import CineRoomImage from "../assets/cine-room.jpg";
 
-export default function CinemaOptions() {
+export default function CinemaOptions(cinemaId) {
+  const cinemaIdValue = cinemaId?.cinemaId || 1;
+  console.log("CinemaOptions received cinemaId:", cinemaIdValue);
   const cinemaOptions = [
     {
-      id: 1,
+      id: cinemaIdValue,
       name: "Tradicional",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 2,
+      id: cinemaIdValue,
       name: "Plus",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 3,
+      id: cinemaIdValue,
       name: "VIP",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 4,
+      id: cinemaIdValue,
       name: "MACRO XE",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 5,
+      id: cinemaIdValue,
       name: "Junior",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 6,
+      id: cinemaIdValue,
       name: "4DX",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 7,
+      id: cinemaIdValue,
       name: "IMAX",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 8,
+      id: cinemaIdValue,
       name: "VR",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",
       type: "Cinema",
     },
     {
-      id: 9,
+      id: cinemaIdValue,
       name: "Screen X",
       imageUrl: CineRoomImage,
       link: "cinemaEvents",

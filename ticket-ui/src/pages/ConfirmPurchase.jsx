@@ -4,6 +4,7 @@ import MuseumImage from "../assets/museo.jpg"; // Asegúrate de tener esta image
 import { useNavigate, useLocation } from "react-router-dom";
 import TitleHeader from "../components/TitleHeader.jsx";
 import { TransactionAPI } from "../services/api/transaction.js";
+import TwilioQR from "../assets/QR_Whatsapp.svg";
 
 export default function ConfirmPurchase() {
   const navigate = useNavigate();
@@ -49,6 +50,11 @@ export default function ConfirmPurchase() {
 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState("");
+  const [whatsappError, setWhatsappError] = useState("");
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false);
+  const [whatsappVerified, setWhatsappVerified] = useState(false);
+  const [showQRModal, setShowQRModal] = useState(false);
   const [cardData, setCardData] = useState({
     number: "",
     name: "",
@@ -85,10 +91,97 @@ export default function ConfirmPurchase() {
     );
   }
 
+  const renderQRModal = () => (
+    <div className="p-6 bg-gray-800 border-1 border-gray-400 rounded-lg max-h-[80vh] overflow-y-auto">
+      <h3 className="text-xl font-bold text-white mb-4">
+        Verificación WhatsApp Requerida
+      </h3>
+
+      <div className="text-center mb-4">
+        <p className="text-white mb-6">
+          Para enviarte la confirmación de tu compra, necesitamos que te unas a
+          nuestro servicio de WhatsApp.
+        </p>
+
+        {/* QR Real de Twilio */}
+        <div className="bg-white p-4 rounded-xl inline-block mb-6">
+          <img
+            src={TwilioQR} // ← Tu QR real aquí
+            alt="Scan with WhatsApp"
+            className="w-56 h-56 mx-auto"
+          />
+          <p className="text-gray-600 text-sm mt-2">Escanea con tu Camara</p>
+        </div>
+
+        <div className="space-y-4">
+          <div className="bg-blue-900 border border-blue-400 rounded-lg p-4">
+            <h4 className="font-bold text-white mb-2">
+              📲 Método alternativo:
+            </h4>
+            <div className="text-white text-sm space-y-2">
+              <p>
+                1. Abre <strong>WhatsApp</strong>
+              </p>
+              <p>2. Envía este código:</p>
+              <div className="bg-black text-green-400 font-mono p-2 rounded text-center">
+                join poor-public
+              </div>
+              <p>
+                3. Al número: <strong>+14155238886</strong>
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-green-900 border border-green-400 rounded-lg p-3">
+            <p className="text-green-200 text-sm">
+              ✅ Recibirás un mensaje de confirmación de Twilio cuando te hayas
+              unido correctamente.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 bg-gray-800 pt-4 -mx-6 -mb-6 px-6 pb-6 border-t border-gray-700">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400 text-sm">Paso 1 de 2</span>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 cursor-pointer"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                setShowQRModal(false);
+                setTimeout(() => {
+                  alert(
+                    "Por favor verifica en tu WhatsApp que recibiste la confirmación de Twilio."
+                  );
+                }, 500);
+              }}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer font-semibold"
+            >
+              Continuar al Pago
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const handlePaymentMethodSelect = (method) => {
     setSelectedPaymentMethod(method);
-    setShowPaymentModal(true);
-    // Reset errors when opening modal
+
+    // Mostrar modal de WhatsApp primero
+    setShowWhatsAppModal(true);
+
+    // Reset states
+    setWhatsappVerified(false);
+    setWhatsappError("");
+    setWhatsappNumber("");
+
+    // Reset card errors
     setErrors({
       number: "",
       name: "",
@@ -253,6 +346,13 @@ export default function ConfirmPurchase() {
   const handleCardSubmit = async (e) => {
     e.preventDefault();
 
+    // Validar WhatsApp antes de procesar
+    const whatsappValidationError = validateWhatsAppNumber(whatsappNumber);
+    if (whatsappValidationError) {
+      setWhatsappError(whatsappValidationError);
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -260,7 +360,6 @@ export default function ConfirmPurchase() {
     setPaymentProcessing(true);
 
     try {
-      // Obtener usuario del localStorage
       const usuario = JSON.parse(localStorage.getItem("user"));
 
       if (!usuario || !usuario.id) {
@@ -269,25 +368,24 @@ export default function ConfirmPurchase() {
         );
       }
 
-      // PREPARAR DATA DE TRANSACCIÓN BASADO EN TIPO DE EVENTO
+      // PREPARAR DATA DE TRANSACCIÓN CON WHATSAPP
       let transaccionData;
 
       if (isMuseumEvent) {
-        // 🎭 DATA PARA MUSEO
         transaccionData = {
           usuario_id: usuario.id,
           evento_id: eventData.id,
           metodo_pago:
             selectedPaymentMethod === "credit" ? "tarjeta" : "tarjeta",
           total_pagado: calculatedTotal,
-          // Campos específicos para museo
-          asientos_seleccionados: [], // Vacío para museo
-          secciones_info: [], // Vacío para museo
-          ticket_details: prepararTicketDetails(), // Detalles de boletos
-          tipo_evento: "Museo", // Especificar que es museo
+          asientos_seleccionados: [],
+          secciones_info: [],
+          ticket_details: prepararTicketDetails(),
+          tipo_evento: "Museo",
+          whatsapp_number: formatWhatsAppForBackend(whatsappNumber), // ← AGREGAR WHATSAPP
+          eventData: eventData, // ← IMPORTANTE: enviar eventData para el mensaje
         };
       } else {
-        // 🎭 DATA PARA TEATRO/CINE (existente)
         transaccionData = {
           usuario_id: usuario.id,
           evento_id: eventData.id,
@@ -297,23 +395,22 @@ export default function ConfirmPurchase() {
           asientos_seleccionados: prepararAsientosSeleccionados(),
           secciones_info: prepararSeccionesInfo(),
           ticket_details: prepararTicketDetails(),
-          tipo_evento: "Teatro", // O "Cine" según corresponda
+          tipo_evento: "Teatro",
+          whatsapp_number: formatWhatsAppForBackend(whatsappNumber), // ← AGREGAR WHATSAPP
+          eventData: eventData, // ← IMPORTANTE: enviar eventData para el mensaje
         };
       }
 
       console.log("Enviando transacción:", transaccionData);
 
-      // Llamar a la API para procesar la transacción
       const resultado = await TransactionAPI.createTransaction(transaccionData);
 
-      // Si la transacción fue exitosa
       alert("¡Pago procesado exitosamente! Su compra ha sido confirmada.");
       setShowPaymentModal(false);
 
-      // Navigate to summary con los datos de la transacción
       navigate("/summary", {
         state: {
-          selectedSeats: isMuseumEvent ? [] : selectedSeats, // Vacío para museo
+          selectedSeats: isMuseumEvent ? [] : selectedSeats,
           ticketTypes: ticketTypes.filter((t) => t.quantity > 0),
           total: calculatedTotal,
           eventData,
@@ -321,7 +418,7 @@ export default function ConfirmPurchase() {
             selectedPaymentMethod === "credit" ? "Credit Card" : "Debit Card",
           transaccion_id: resultado.transaction_id,
           transaccion: resultado.transaction,
-          isMuseum: isMuseumEvent, // Pasar flag de museo
+          isMuseum: isMuseumEvent,
         },
       });
     } catch (error) {
@@ -462,6 +559,13 @@ export default function ConfirmPurchase() {
   };
 
   const handlePayPalPayment = async () => {
+    // Validar WhatsApp antes de procesar
+    const whatsappValidationError = validateWhatsAppNumber(whatsappNumber);
+    if (whatsappValidationError) {
+      setWhatsappError(whatsappValidationError);
+      return;
+    }
+
     setPaymentProcessing(true);
 
     try {
@@ -473,33 +577,34 @@ export default function ConfirmPurchase() {
         );
       }
 
-      // PREPARAR DATA DE TRANSACCIÓN BASADO EN TIPO DE EVENTO - CORREGIDO
+      // PREPARAR DATA DE TRANSACCIÓN CON WHATSAPP
       let transaccionData;
 
       if (isMuseumEvent) {
-        // 🎭 DATA PARA MUSEO
         transaccionData = {
           usuario_id: usuario.id,
           evento_id: eventData.id,
-          metodo_pago: "paypal", // Especificar PayPal como método de pago
+          metodo_pago: "paypal",
           total_pagado: calculatedTotal,
-          // Campos específicos para museo
-          asientos_seleccionados: [], // Vacío para museo
-          secciones_info: [], // Vacío para museo
-          ticket_details: prepararTicketDetails(), // Detalles de boletos
-          tipo_evento: "Museo", // Especificar que es museo
+          asientos_seleccionados: [],
+          secciones_info: [],
+          ticket_details: prepararTicketDetails(),
+          tipo_evento: "Museo",
+          whatsapp_number: formatWhatsAppForBackend(whatsappNumber), // ← AGREGAR WHATSAPP
+          eventData: eventData, // ← IMPORTANTE: enviar eventData para el mensaje
         };
       } else {
-        // 🎭 DATA PARA TEATRO/CINE
         transaccionData = {
           usuario_id: usuario.id,
           evento_id: eventData.id,
-          metodo_pago: "paypal", // Especificar PayPal como método de pago
+          metodo_pago: "paypal",
           total_pagado: calculatedTotal,
           asientos_seleccionados: prepararAsientosSeleccionados(),
           secciones_info: prepararSeccionesInfo(),
           ticket_details: prepararTicketDetails(),
-          tipo_evento: "Teatro", // O "Cine" según corresponda
+          tipo_evento: "Teatro",
+          whatsapp_number: formatWhatsAppForBackend(whatsappNumber), // ← AGREGAR WHATSAPP
+          eventData: eventData, // ← IMPORTANTE: enviar eventData para el mensaje
         };
       }
 
@@ -514,14 +619,14 @@ export default function ConfirmPurchase() {
 
       navigate("/summary", {
         state: {
-          selectedSeats: isMuseumEvent ? [] : selectedSeats, // Vacío para museo
+          selectedSeats: isMuseumEvent ? [] : selectedSeats,
           ticketTypes: ticketTypes.filter((t) => t.quantity > 0),
           total: calculatedTotal,
           eventData,
           paymentMethod: "PayPal",
           transaccion_id: resultado.transaction_id,
           transaccion: resultado.transaction,
-          isMuseum: isMuseumEvent, // Pasar flag de museo
+          isMuseum: isMuseumEvent,
         },
       });
     } catch (error) {
@@ -531,21 +636,88 @@ export default function ConfirmPurchase() {
       setPaymentProcessing(false);
     }
   };
+
+  const validateWhatsAppNumber = (number) => {
+    const cleanNumber = number.replace(/\D/g, "");
+
+    if (!number.trim()) {
+      return "El número de WhatsApp es requerido";
+    } else if (cleanNumber.length < 10) {
+      return "El número debe tener al menos 10 dígitos";
+    } else if (!/^[\d\s+()-]+$/.test(number)) {
+      return "Solo se permiten números, espacios y los caracteres + - ( )";
+    }
+    return "";
+  };
+
+  const formatWhatsAppForBackend = (number) => {
+    // Limpiar el número
+    let cleanNumber = number.replace(/\D/g, "");
+
+    // Si es un número mexicano de 10 dígitos, convertirlo a formato internacional
+    if (cleanNumber.length === 10 && !cleanNumber.startsWith("1")) {
+      // Ejemplo: 3329614381 → 5213329614381
+      cleanNumber = `521${cleanNumber}`;
+    }
+    // Si ya tiene 52 pero no 521, convertirlo
+    else if (
+      cleanNumber.length === 12 &&
+      cleanNumber.startsWith("52") &&
+      !cleanNumber.startsWith("521")
+    ) {
+      // Ejemplo: 523329614381 → 5213329614381
+      const remaining = cleanNumber.substring(2);
+      cleanNumber = `521${remaining}`;
+    }
+
+    return cleanNumber;
+  };
+
   const renderPaymentModal = () => {
     switch (selectedPaymentMethod) {
       case "credit":
       case "debit":
         return (
           <div className="p-6 bg-gray-800 border-1 border-gray-400 rounded-lg">
-            <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors mb-4">
+            <h3 className="text-xl font-bold text-white mb-4">
               {selectedPaymentMethod === "credit"
                 ? "Tarjeta de Crédito"
                 : "Tarjeta de Débito"}
             </h3>
 
+            {/* CAMPO WHATSAPP AGREGADO */}
+            <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+              <label className="block text-sm font-bold text-white mb-2">
+                Número de WhatsApp para confirmación
+              </label>
+              <input
+                type="tel"
+                value={whatsappNumber}
+                onChange={(e) => {
+                  setWhatsappNumber(e.target.value);
+                  if (whatsappError) setWhatsappError("");
+                }}
+                onBlur={() => {
+                  const error = validateWhatsAppNumber(whatsappNumber);
+                  setWhatsappError(error);
+                }}
+                placeholder="+52 55 1234 5678 o 55 1234 5678"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
+                  whatsappError ? "border-red-500" : "border-gray-300"
+                }`}
+                required
+              />
+              {whatsappError && (
+                <p className="mt-1 text-sm text-red-400">{whatsappError}</p>
+              )}
+              <p className="text-xs text-gray-300 mt-1">
+                📱 Recibirás la confirmación de tu compra por WhatsApp
+              </p>
+            </div>
+
             <form onSubmit={handleCardSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-white group-hover:text-cyan-300 transition-colors mb-1">
+                <label className="block text-sm font-bold text-white mb-1">
                   Número de Tarjeta
                 </label>
                 <input
@@ -555,19 +727,19 @@ export default function ConfirmPurchase() {
                   onChange={handleCardInputChange}
                   onBlur={handleInputBlur}
                   placeholder="1234 5678 9012 3456"
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-white group-hover:text-cyan-300 transition-colors ${
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
                     errors.number ? "border-red-500" : "border-gray-300"
                   }`}
-                  maxLength={19} // 16 digits + 3 spaces
+                  maxLength={19}
                   required
                 />
                 {errors.number && (
-                  <p className="mt-1 text-sm text-red-600">{errors.number}</p>
+                  <p className="mt-1 text-sm text-red-400">{errors.number}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-white group-hover:text-cyan-300 transition-colors mb-1">
+                <label className="block text-sm font-bold text-white mb-1">
                   Nombre del Titular
                 </label>
                 <input
@@ -577,19 +749,19 @@ export default function ConfirmPurchase() {
                   onChange={handleCardInputChange}
                   onBlur={handleInputBlur}
                   placeholder="Juan Pérez"
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-white group-hover:text-cyan-300 transition-colors ${
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
                     errors.name ? "border-red-500" : "border-gray-300"
                   }`}
                   required
                 />
                 {errors.name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+                  <p className="mt-1 text-sm text-red-400">{errors.name}</p>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-white group-hover:text-cyan-300 transition-colors mb-1">
+                  <label className="block text-xs font-bold text-white mb-1">
                     Fecha de Expiración (MM/AA)
                   </label>
                   <input
@@ -599,19 +771,19 @@ export default function ConfirmPurchase() {
                     onChange={handleCardInputChange}
                     onBlur={handleInputBlur}
                     placeholder="MM/AA"
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-white group-hover:text-cyan-300 transition-colors ${
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
                       errors.expiry ? "border-red-500" : "border-gray-300"
                     }`}
                     maxLength={5}
                     required
                   />
                   {errors.expiry && (
-                    <p className="mt-1 text-sm text-red-600">{errors.expiry}</p>
+                    <p className="mt-1 text-sm text-red-400">{errors.expiry}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-white group-hover:text-cyan-300 transition-colors mb-1">
+                  <label className="block text-xs font-bold text-white mb-1">
                     CVV
                   </label>
                   <input
@@ -621,14 +793,14 @@ export default function ConfirmPurchase() {
                     onChange={handleCardInputChange}
                     onBlur={handleInputBlur}
                     placeholder="123"
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-bold text-white group-hover:text-cyan-300 transition-colors ${
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
                       errors.cvv ? "border-red-500" : "border-gray-300"
                     }`}
                     maxLength={4}
                     required
                   />
                   {errors.cvv && (
-                    <p className="mt-1 text-sm text-red-600">{errors.cvv}</p>
+                    <p className="mt-1 text-sm text-red-400">{errors.cvv}</p>
                   )}
                 </div>
               </div>
@@ -637,16 +809,18 @@ export default function ConfirmPurchase() {
                 <button
                   type="button"
                   onClick={() => setShowPaymentModal(false)}
-                  className="px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  disabled={paymentProcessing}
+                  disabled={paymentProcessing || whatsappError}
                   className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 cursor-pointer"
                 >
-                  {paymentProcessing ? "Procesando..." : `Pagar`}
+                  {paymentProcessing
+                    ? "Procesando..."
+                    : `Pagar $${calculatedTotal.toFixed(2)}`}
                 </button>
               </div>
             </form>
@@ -656,25 +830,54 @@ export default function ConfirmPurchase() {
       case "paypal":
         return (
           <div className="p-6 border-1 border-gray-400 rounded-lg bg-gray-800">
-            <h3 className="text-xl font-bold text-white group-hover:text-cyan-300 transition-colors mb-4">
+            <h3 className="text-xl font-bold text-white mb-4">
               Pago con PayPal
             </h3>
 
-            <div className="bg-gray-900 border border-gray-400 rounded-lg p-4 mb-6 justify-center">
+            {/* CAMPO WHATSAPP AGREGADO PARA PAYPAL */}
+            <div className="mb-4 p-3 bg-gray-700 rounded-lg">
+              <label className="block text-sm font-bold text-white mb-2">
+                Número de WhatsApp para confirmación
+              </label>
+              <input
+                type="tel"
+                value={whatsappNumber}
+                onChange={(e) => {
+                  setWhatsappNumber(e.target.value);
+                  if (whatsappError) setWhatsappError("");
+                }}
+                onBlur={() => {
+                  const error = validateWhatsAppNumber(whatsappNumber);
+                  setWhatsappError(error);
+                }}
+                placeholder="+52 55 1234 5678 o 55 1234 5678"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
+                  whatsappError ? "border-red-500" : "border-gray-300"
+                }`}
+                required
+              />
+              {whatsappError && (
+                <p className="mt-1 text-sm text-red-400">{whatsappError}</p>
+              )}
+              <p className="text-xs text-gray-300 mt-1">
+                📱 Recibirás la confirmación de tu compra por WhatsApp
+              </p>
+            </div>
+
+            <div className="bg-gray-900 border border-gray-400 rounded-lg p-4 mb-6">
               <div className="flex items-center">
                 <div className="bg-gray-200 p-3 rounded-full mr-3">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="currentColor"
-                    class="bi bi-paypal"
-                    className="w-12 h-12 text-blue-600 justify-center"
+                    className="w-12 h-12 text-blue-600"
                     viewBox="0 0 24 24"
                   >
                     <path d="M14.06 3.713c.12-1.071-.093-1.832-.702-2.526C12.628.356 11.312 0 9.626 0H4.734a.7.7 0 0 0-.691.59L2.005 13.509a.42.42 0 0 0 .415.486h2.756l-.202 1.28a.628.628 0 0 0 .62.726H8.14c.429 0 .793-.31.862-.731l.025-.13.48-3.043.03-.164.001-.007a.35.35 0 0 1 .348-.297h.38c1.266 0 2.425-.256 3.345-.91q.57-.403.993-1.005a4.94 4.94 0 0 0 .88-2.195c.242-1.246.13-2.356-.57-3.154a2.7 2.7 0 0 0-.76-.59l-.094-.061ZM6.543 8.82a.7.7 0 0 1 .321-.079H8.3c2.82 0 5.027-1.144 5.672-4.456l.003-.016q.326.186.548.438c.546.623.679 1.535.45 2.71-.272 1.397-.866 2.307-1.663 2.874-.802.57-1.842.815-3.043.815h-.38a.87.87 0 0 0-.863.734l-.03.164-.48 3.043-.024.13-.001.004a.35.35 0 0 1-.348.296H5.595a.106.106 0 0 1-.105-.123l.208-1.32z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-medium text-white group-hover:text-cyan-300 transition-colors">
+                  <p className="font-medium text-white">
                     Serás redirigido a PayPal para completar tu pago
                   </p>
                   <p className="text-sm text-white">
@@ -687,13 +890,13 @@ export default function ConfirmPurchase() {
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowPaymentModal(false)}
-                className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 cursor-pointer"
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 cursor-pointer"
               >
                 Cancelar
               </button>
               <button
                 onClick={handlePayPalPayment}
-                disabled={paymentProcessing}
+                disabled={paymentProcessing || whatsappError}
                 className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-400 cursor-pointer"
               >
                 {paymentProcessing ? "Redirigiendo..." : "Pagar con PayPal"}
@@ -706,6 +909,126 @@ export default function ConfirmPurchase() {
         return null;
     }
   };
+
+  const renderWhatsAppModal = () => (
+    <div className="p-6 bg-gray-800 border-1 border-gray-400 rounded-lg">
+      <h3 className="text-xl font-bold text-white mb-4">
+        Confirmación por WhatsApp
+      </h3>
+
+      {!whatsappVerified ? (
+        <>
+          <div className="bg-yellow-900 border border-yellow-400 rounded-lg p-4 mb-4">
+            <div className="flex items-start">
+              <svg
+                className="w-6 h-6 text-yellow-400 mr-2 mt-0.5 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+              <div>
+                <p className="text-yellow-200 font-semibold">
+                  Verificación requerida
+                </p>
+                <p className="text-yellow-100 text-sm mt-1">
+                  Para recibir tu confirmación, primero debes unirte a nuestro
+                  servicio de WhatsApp.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={() => setShowQRModal(true)}
+              className="w-full py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 mb-3 cursor-pointer"
+            >
+              📱 Unirme a WhatsApp
+            </button>
+
+            <p className="text-gray-300 text-sm mb-4">O si ya te uniste:</p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-bold text-white mb-2">
+                Ingresa tu número de WhatsApp
+              </label>
+              <input
+                type="tel"
+                value={whatsappNumber}
+                onChange={(e) => {
+                  setWhatsappNumber(e.target.value);
+                  if (whatsappError) setWhatsappError("");
+                }}
+                placeholder="3325906198"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-white bg-gray-600 ${
+                  whatsappError ? "border-red-500" : "border-gray-300"
+                }`}
+              />
+              {whatsappError && (
+                <p className="mt-1 text-sm text-red-400">{whatsappError}</p>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                const error = validateWhatsAppNumber(whatsappNumber);
+                if (error) {
+                  setWhatsappError(error);
+                  return;
+                }
+                setWhatsappVerified(true);
+              }}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
+            >
+              Verificar y Continuar
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="bg-green-900 border border-green-400 rounded-lg p-4 mb-4">
+            <div className="flex items-center">
+              <svg
+                className="w-5 h-5 text-green-400 mr-2"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+              </svg>
+              <span className="text-green-200 font-semibold">
+                ✓ WhatsApp verificado
+              </span>
+            </div>
+            <p className="text-green-100 text-sm mt-1">
+              Confirmación se enviará a: <strong>{whatsappNumber}</strong>
+            </p>
+          </div>
+
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={() => {
+                setWhatsappVerified(false);
+                setWhatsappError("");
+              }}
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 cursor-pointer"
+            >
+              Cambiar número
+            </button>
+            <button
+              onClick={() => {
+                setShowWhatsAppModal(false);
+                setShowPaymentModal(true);
+              }}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer"
+            >
+              Continuar al Pago
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  );
 
   const getEventImage = () => {
     return isMuseumEvent ? MuseumImage : TheaterImage;
@@ -909,7 +1232,7 @@ export default function ConfirmPurchase() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <button
                     onClick={() => handlePaymentMethodSelect("credit")}
-                    className="p-4  bg-gray-900 border-2 border-gray-600 rounded-lg hover:border-gray-500 hover:bg-gray-700 transition-all cursor-pointer"
+                    className="p-4 bg-gray-900 border-2 border-gray-600 rounded-lg hover:border-gray-500 hover:bg-gray-700 transition-all cursor-pointer relative"
                   >
                     <div className="flex flex-col items-center">
                       <svg
@@ -920,6 +1243,11 @@ export default function ConfirmPurchase() {
                         <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" />
                       </svg>
                       <span className="text-white">Tarjeta de Crédito</span>
+                      {whatsappVerified && (
+                        <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs">
+                          ✓
+                        </div>
+                      )}
                     </div>
                   </button>
 
@@ -981,6 +1309,26 @@ export default function ConfirmPurchase() {
           </div>
         </div>
       </div>
+
+      {/* WhatsApp Modal */}
+      {showWhatsAppModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            {renderWhatsAppModal()}
+          </div>
+        </div>
+      )}
+
+      {/* QR Modal */}
+      {showQRModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {" "}
+            {/* ← AGREGAR max-h y overflow-hidden */}
+            {renderQRModal()}
+          </div>
+        </div>
+      )}
 
       {/* Payment Modal */}
       {showPaymentModal && (

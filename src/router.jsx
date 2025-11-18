@@ -5,7 +5,6 @@ import Home from "./pages/Home.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Menu from "./pages/Menu.jsx";
 import Login from "./pages/Login.jsx";
-import Museum from "./pages/Museum.jsx";
 import SubMenu from "./components/SubMenu.jsx";
 
 import Profile from "./pages/Profile.jsx";
@@ -63,15 +62,6 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <SubMenu />
-          </ProtectedRoute>
-        ),
-      },
-
-      {
-        path: "museum",
-        element: (
-          <ProtectedRoute>
-            <Museum />
           </ProtectedRoute>
         ),
       },

@@ -3,7 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { TransactionAPI } from "../services/api/transaction.js";
-import ConfirmPurchase from "..pages/ConfirmPurchase";
+import ConfirmPurchase from "../pages/ConfirmPurchase.jsx";
 
 // --- Mocks ---
 
@@ -23,6 +23,13 @@ jest.mock("../services/api/transaction.js", () => ({
 
 // 3. Mockear localStorage (el componente lo usa para obtener el usuario)
 const mockUser = { id: 1, name: "Test User" };
+
+// 4. Mockear window.alert y console.error
+const mockAlert = jest.spyOn(window, "alert").mockImplementation(() => {});
+const mockConsoleError = jest
+  .spyOn(console, "error")
+  .mockImplementation(() => {});
+
 beforeAll(() => {
   Storage.prototype.getItem = jest.fn((key) => {
     if (key === "user") {
@@ -32,8 +39,10 @@ beforeAll(() => {
   });
 });
 
-// 4. Mockear window.alert
-const mockAlert = jest.spyOn(window, "alert").mockImplementation(() => {});
+afterAll(() => {
+  mockAlert.mockRestore();
+  mockConsoleError.mockRestore();
+});
 
 // --- Datos simulados del state de useLocation ---
 const mockLocationData = {
@@ -61,6 +70,7 @@ describe("Pruebas de Caja Negra: Manejo de Errores - Formulario de Pago", () => 
     // Limpiamos mocks
     TransactionAPI.createTransaction.mockClear();
     mockAlert.mockClear();
+    mockConsoleError.mockClear();
     useLocation.mockReturnValue({ state: mockLocationData });
 
     render(
@@ -69,17 +79,39 @@ describe("Pruebas de Caja Negra: Manejo de Errores - Formulario de Pago", () => 
       </MemoryRouter>
     );
 
-    // 1. Abrir el modal de pago
+    // 1. Abrir el modal de WhatsApp primero
     const creditCardButton = screen.getByText(/Tarjeta de Crédito/i);
     await user.click(creditCardButton);
-    await screen.findByText("Número de Tarjeta"); // Esperar a que el modal esté visible
+
+    // 2. Esperar a que aparezca el modal de WhatsApp
+    await screen.findByText("Confirmación por WhatsApp");
+
+    // 3. Saltar la verificación de WhatsApp ingresando un número válido
+    const whatsappInput = screen.getByPlaceholderText("3325906198");
+    await user.type(whatsappInput, "3325906198");
+
+    // 4. Hacer clic en "Verificar y Continuar"
+    const verifyButton = screen.getByText("Verificar y Continuar");
+    await user.click(verifyButton);
+
+    // 5. Esperar a que aparezca el botón "Continuar al Pago" en el modal de WhatsApp verificado
+    const continueButton = await screen.findByText("Continuar al Pago");
+    await user.click(continueButton);
+
+    // 6. Ahora esperar a que el modal de pago esté visible
+    await screen.findByText("Número de Tarjeta");
+  });
+
+  afterEach(() => {
+    // Limpiar mocks después de cada test
+    jest.clearAllMocks();
   });
 
   /**
    * Caso 1: Validación de Cliente (Número de Tarjeta Inválido)
    */
   test("Caso 1: Muestra error si el número de tarjeta es inválido y no llama a la API", async () => {
-    const payButton = screen.getByRole("button", { name: "Pagar" });
+    const payButton = screen.getByRole("button", { name: /Pagar/i });
 
     // Llenar formulario con datos inválidos
     await user.type(screen.getByPlaceholderText("1234 5678 9012 3456"), "123");
@@ -104,7 +136,7 @@ describe("Pruebas de Caja Negra: Manejo de Errores - Formulario de Pago", () => 
    */
   test("Caso 2: Muestra error si la tarjeta está expirada y no llama a la API", async () => {
     // Asumimos que la prueba corre en 2025 (como tu Test 8)
-    const payButton = screen.getByRole("button", { name: "Pagar" });
+    const payButton = screen.getByRole("button", { name: /Pagar/i });
 
     // Llenar formulario con datos válidos, excepto la fecha
     await user.type(
@@ -135,7 +167,7 @@ describe("Pruebas de Caja Negra: Manejo de Errores - Formulario de Pago", () => 
     const apiError = new Error("Error de conexión");
     TransactionAPI.createTransaction.mockRejectedValue(apiError);
 
-    const payButton = screen.getByRole("button", { name: "Pagar" });
+    const payButton = screen.getByRole("button", { name: /Pagar/i });
 
     // Llenar formulario con TODOS los datos válidos
     await user.type(
@@ -151,10 +183,18 @@ describe("Pruebas de Caja Negra: Manejo de Errores - Formulario de Pago", () => 
 
     // Esperar a que el ciclo de "procesando" termine.
     // La prueba de que terminó es que el botón vuelve a decir "Pagar".
-    expect(await screen.findByText("Pagar")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(/Pagar/i)).toBeInTheDocument();
+    });
 
     // Verificar que la API FUE llamada
     expect(TransactionAPI.createTransaction).toHaveBeenCalledTimes(1);
+
+    // Verificar que se llamó a console.error con el mensaje de error
+    expect(mockConsoleError).toHaveBeenCalledWith(
+      "Error procesando pago:",
+      apiError
+    );
 
     // Verificar que se mostró la alerta de error
     expect(mockAlert).toHaveBeenCalledWith(

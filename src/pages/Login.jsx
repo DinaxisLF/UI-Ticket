@@ -84,6 +84,7 @@ const Login = () => {
         newErrors.password = passwordValidation.message;
       }
     }
+
     if (!isLogin) {
       if (!formData.name) {
         newErrors.name = "Ingresa un nombre";
@@ -96,10 +97,9 @@ const Login = () => {
 
       if (!formData.email) {
         newErrors.email = "Email es requerido";
-      } else if (
-        !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)
-      ) {
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
         newErrors.email = "Email no valido";
+        console.log("✅ ERROR DE EMAIL DETECTADO:", formData.email); // DEBUG
       }
 
       if (!formData.confirmPassword) {
@@ -109,31 +109,52 @@ const Login = () => {
       }
     }
 
+    console.log("🚨 ERRORES VALIDADOS:", newErrors); // DEBUG
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validateForm()) {
+
+    // 1. Validar el formulario
+    const isValid = validateForm();
+    if (!isValid) return;
+
+    try {
+      // 2. Intentar Login o Registro
+      // Si 'login' lanza un error, el código saltará inmediatamente al 'catch'
       const result = isLogin
         ? await login(formData.username, formData.password)
         : await register(formData);
 
-      if (result.success) {
+      // 3. Manejar respuesta exitosa o error lógico controlado (si tu API devuelve success: false)
+      if (result && result.success) {
         setMessage({ text: result.message, type: "success" });
         navigate("/dashboard");
       } else {
-        // Use the modal hook function
-        showErrorModal(
-          "Error de Autenticación",
-          "Por favor verifica tus credenciales e intenta nuevamente."
-        );
-        setMessage({ text: result.message, type: "error" });
+        // Esto maneja casos donde la API no falla, pero devuelve un error (ej. usuario ya existe)
+        const errorMsg = result?.message || "Error desconocido";
+        showErrorModal("Atención", errorMsg);
+        setMessage({ text: errorMsg, type: "error" });
       }
+    } catch (error) {
+      // 4. CAPTURAR EL ERROR DE LA API (Aquí es donde está cayendo tu error actual)
+      console.error("Error capturado en Login:", error);
+
+      // Mostrar el modal
+      showErrorModal(
+        "Error de Autenticación",
+        "Credenciales inválidas o error de conexión. Por favor intenta nuevamente."
+      );
+
+      // Actualizar el mensaje en el form
+      setMessage({
+        text: "Error al conectar con el servidor o credenciales inválidas.",
+        type: "error",
+      });
     }
   };
-
   const toggleFormMode = () => {
     setIsLogin(!isLogin);
     setErrors({});
@@ -316,36 +337,7 @@ const Login = () => {
               className="block text-sm font-medium text-gray-700 mb-2"
             >
               Contraseña
-              <span className="ml-1 text-blue-500 cursor-help relative">
-                <div className="group inline-block">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4 inline"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <div className="absolute left-0 -top-2 transform -translate-y-full w-56 p-3 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 shadow-lg z-10">
-                    <div className="mb-1 font-semibold">
-                      La contraseña debe tener:
-                    </div>
-                    <div>• Exactamente 8 caracteres</div>
-                    <div>• Al menos 1 letra mayúscula</div>
-                    <div>• Al menos 1 letra minúscula</div>
-                    <div>• Al menos 1 número</div>
-                    <div>• Al menos 1 carácter especial (@, #, $, %, &)</div>
-                    <div className="mt-2 text-blue-300">Ej: Abc123$%</div>
-                    <div className="absolute bottom-0 left-3 transform translate-y-full border-8 border-transparent border-t-gray-800"></div>
-                  </div>
-                </div>
-              </span>
+              <span className="ml-1 text-blue-500 cursor-help relative"></span>
             </label>
             <input
               type="password"
@@ -356,7 +348,6 @@ const Login = () => {
               className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                 errors.password ? "border-red-500" : "border-gray-300"
               }`}
-              placeholder="Debe tener exactamente 8 caracteres"
               maxLength={8}
             />
             {errors.password && (

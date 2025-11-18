@@ -16,7 +16,6 @@ export default function ConfirmPurchase() {
   const isMuseumEvent = eventData?.tipo_evento === "museum";
 
   // Format seat display names
-  // Format seat display names - FIXED VERSION
   const formatSeatDisplay = (seatId) => {
     if (!seatId) return "";
     const [section, row, col] = seatId.split("-");
@@ -48,6 +47,7 @@ export default function ConfirmPurchase() {
         )
       : 0);
 
+  console.log(ticketTypes);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState("");
@@ -382,8 +382,8 @@ export default function ConfirmPurchase() {
           secciones_info: [],
           ticket_details: prepararTicketDetails(),
           tipo_evento: "Museo",
-          whatsapp_number: formatWhatsAppForBackend(whatsappNumber), // ← AGREGAR WHATSAPP
-          eventData: eventData, // ← IMPORTANTE: enviar eventData para el mensaje
+          whatsapp_number: formatWhatsAppForBackend(whatsappNumber),
+          eventData: eventData,
         };
       } else {
         transaccionData = {
@@ -396,8 +396,8 @@ export default function ConfirmPurchase() {
           secciones_info: prepararSeccionesInfo(),
           ticket_details: prepararTicketDetails(),
           tipo_evento: "Teatro",
-          whatsapp_number: formatWhatsAppForBackend(whatsappNumber), // ← AGREGAR WHATSAPP
-          eventData: eventData, // ← IMPORTANTE: enviar eventData para el mensaje
+          whatsapp_number: formatWhatsAppForBackend(whatsappNumber),
+          eventData: eventData,
         };
       }
 
@@ -501,8 +501,8 @@ export default function ConfirmPurchase() {
     selectedSeats.forEach((seatId) => {
       const [section, row, col] = seatId.split("-");
 
-      // Normalizar la sección a minúsculas
-      const normalizedSection = section.toLowerCase();
+      // NORMALIZACIÓN COMPLETA: minúsculas + sin espacios
+      const normalizedSection = section.toLowerCase().replace(/\s+/g, "");
       console.log(
         `🔍 Sección original: ${section} -> normalizada: ${normalizedSection}`
       );
@@ -521,7 +521,7 @@ export default function ConfirmPurchase() {
     });
 
     return Object.keys(seccionesMap).map((seccion_key) => ({
-      seccion_key: seccion_key, // Enviar en minúsculas
+      seccion_key: seccion_key, // Enviar normalizado
       asientos: seccionesMap[seccion_key],
     }));
   };
@@ -539,8 +539,12 @@ export default function ConfirmPurchase() {
 
   const getCategoryIdForMuseum = (ticket) => {
     if (isMuseumEvent) {
-      // Para museo, siempre usar categoría "General" (ID 1)
       return 1;
+    } else if (
+      eventData?.tipo_evento === "cinema" ||
+      eventData?.originalData?.tipo_evento === "Cine"
+    ) {
+      return ticket.id;
     } else {
       // Para teatro/cine, usar la lógica existente
       return getCategoryIdBySection(ticket.section);
@@ -651,28 +655,31 @@ export default function ConfirmPurchase() {
   };
 
   const formatWhatsAppForBackend = (number) => {
-    // Limpiar el número
-    let cleanNumber = number.replace(/\D/g, "");
+    console.log("📱 Número original:", number);
 
-    // Si es un número mexicano de 10 dígitos, convertirlo a formato internacional
+    let cleanNumber = number.replace(/\D/g, "");
+    console.log("📱 Número limpiado:", cleanNumber);
+
+    // FORMATO QUE META PREFIERE: 521 + 10 dígitos
+    // Ejemplo: 5213325906198
+
     if (cleanNumber.length === 10 && !cleanNumber.startsWith("1")) {
-      // Ejemplo: 3329614381 → 5213329614381
+      // Número local: 3325906198 → 5213325906198
       cleanNumber = `521${cleanNumber}`;
-    }
-    // Si ya tiene 52 pero no 521, convertirlo
-    else if (
-      cleanNumber.length === 12 &&
+      console.log("📱 Convertido a 521:", cleanNumber);
+    } else if (
       cleanNumber.startsWith("52") &&
+      cleanNumber.length === 12 &&
       !cleanNumber.startsWith("521")
     ) {
-      // Ejemplo: 523329614381 → 5213329614381
-      const remaining = cleanNumber.substring(2);
-      cleanNumber = `521${remaining}`;
+      // Convertir: 523325906198 → 5213325906198
+      cleanNumber = `521${cleanNumber.substring(2)}`;
+      console.log("📱 Corregido a 521:", cleanNumber);
     }
 
+    console.log("📱 Número FINAL para backend:", cleanNumber);
     return cleanNumber;
   };
-
   const renderPaymentModal = () => {
     switch (selectedPaymentMethod) {
       case "credit":

@@ -122,7 +122,7 @@ export const validatePassword = (password) => {
   if (password.length !== 8) {
     return {
       isValid: false,
-      message: "La contraseña debe tener exactamente 8 caracteres",
+      message: "La contraseña debe tener al menos 8 caracteres",
     };
   }
 

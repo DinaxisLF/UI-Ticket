@@ -58,7 +58,7 @@ export const authAPI = {
     try {
       console.log("Sending register request to /api/users");
 
-      const response = await fetch(`${User_API_URL}/users`, {
+      const response = await fetch(`${User_API_URL}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

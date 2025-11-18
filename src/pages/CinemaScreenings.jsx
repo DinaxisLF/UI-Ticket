@@ -16,14 +16,19 @@ export default function CinemaScreenings() {
         setLoading(true);
         setError(null);
 
-        console.log(`Fetching events for cinema ID: ${id}, room type: ${type}`);
+        // FIX: Remove empty spaces from the type (converts "Screen X" to "ScreenX")
+        const apiType = type.replace(/\s+/g, "");
 
-        const result = await CinemaAPI.getEventsByCinemaRoom(type, id);
+        console.log(
+          `Fetching events for cinema ID: ${id}, room type: ${apiType}`
+        );
+
+        // Use apiType instead of the raw type
+        const result = await CinemaAPI.getEventsByCinemaRoom(apiType, id);
 
         console.log("API response:", result);
 
         if (result.success && result.events && Array.isArray(result.events)) {
-          // Transform the API data to match EventCard component expectations
           const transformedEvents = result.events.map((event) => ({
             id: event.id,
             nombre_evento: event.nombre_evento,
@@ -39,7 +44,6 @@ export default function CinemaScreenings() {
               timeZone: "America/Mexico_City",
             }),
             location: event.ubicacion,
-            // Calculate duration
             duration: calculateDuration(
               event.horario_inicio,
               event.horario_fin
